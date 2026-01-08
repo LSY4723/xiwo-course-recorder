@@ -668,7 +668,7 @@ function setupIpcHandlers() {
         teacher: '张老师',
         startTime: '2026-01-06 09:00',
         endTime: '2026-01-06 11:00',
-        streamUrl: 'rtmp://wspush.qingbeikeji.com/live/peiyou2792072stumodeldevrandom'
+        streamUrl: ''
       },
       {
         id: 'mock-002',
@@ -676,7 +676,7 @@ function setupIpcHandlers() {
         teacher: '李老师',
         startTime: '2026-01-07 14:00',
         endTime: '2026-01-07 16:00',
-        streamUrl: 'rtmp://wspush.qingbeikeji.com/live/peiyou2792072modeldevrandom'
+        streamUrl: ''
       }
     ];
   });
