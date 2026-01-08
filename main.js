@@ -261,18 +261,20 @@ function setupIpcHandlers() {
         '-b:a', '128k',
         '-y'
       );
-      
-      // 添加输出路径
+
+// 添加输出路径
       if (options.pushStream && options.streamUrl) {
-        // 如果需要推流，同时输出到文件和RTMP服务器
+        // 修复tee复用器参数格式，避免SIGABRT错误
+        // 使用更简单的格式，避免复杂的map参数导致FFmpeg内部错误
         args.push(
-          '-f', 'tee',
-          `-map 0:v -map 0:a [f=flv]${options.streamUrl}|[f=mp4]${outputPath}`
+            '-f', 'tee',
+            `[onfail=ignore]${options.streamUrl}|[onfail=ignore]${outputPath}`
         );
       } else {
         // 只输出到文件
         args.push(outputPath);
       }
+
       
       log.info('FFmpeg 命令:', args.join(' '));
       
@@ -644,10 +646,22 @@ function setupIpcHandlers() {
     return {
       success: true,
       courses: [
-        { id: 1, name: '数学基础课程', teacher: '张老师', startTime: '09:00', endTime: '09:45', streamUrl: 'rtmp://example.com/live/math' },
-        { id: 2, name: '英语入门教程', teacher: '李老师', startTime: '10:00', endTime: '10:50', streamUrl: 'rtmp://example.com/live/english' },
-        { id: 3, name: '科学实验课', teacher: '王老师', startTime: '14:00', endTime: '14:40', streamUrl: 'rtmp://example.com/live/science' },
-        { id: 4, name: '历史故事汇', teacher: '赵老师', startTime: '15:00', endTime: '15:55', streamUrl: 'rtmp://example.com/live/history' }
+       {
+                   id: 'mock-001',
+                   name: '前端开发入门（演示）',
+                   teacher: '张老师',
+                   startTime: '2026-01-06 09:00',
+                   endTime: '2026-01-06 11:00',
+                   streamUrl: 'rtmp://wspush.qingbeikeji.com/live/peiyou2792072stumodeldevrandom'
+               },
+               {
+                   id: 'mock-002',
+                   name: 'Python数据分析（演示）',
+                   teacher: '李老师',
+                   startTime: '2026-01-07 14:00',
+                   endTime: '2026-01-07 16:00',
+                   streamUrl: 'rtmp://wspush.qingbeikeji.com/live/peiyou2792072modeldevrandom'
+               }
       ]
     };
   });
@@ -655,10 +669,22 @@ function setupIpcHandlers() {
   ipcMain.handle('load-mock-courses', () => {
     // 返回演示课程数据
     return [
-      { id: 1, name: '数学基础课程', teacher: '张老师', duration: '45分钟', description: '小学数学基础知识讲解' },
-      { id: 2, name: '英语入门教程', teacher: '李老师', duration: '50分钟', description: '英语零基础入门课程' },
-      { id: 3, name: '科学实验课', teacher: '王老师', duration: '40分钟', description: '有趣的科学实验讲解' },
-      { id: 4, name: '历史故事汇', teacher: '赵老师', duration: '55分钟', description: '中国历史故事讲解' }
+      {
+                  id: 'mock-001',
+                  name: '前端开发入门（演示）',
+                  teacher: '张老师',
+                  startTime: '2026-01-06 09:00',
+                  endTime: '2026-01-06 11:00',
+                  streamUrl: 'rtmp://wspush.qingbeikeji.com/live/peiyou2792072stumodeldevrandom'
+              },
+              {
+                  id: 'mock-002',
+                  name: 'Python数据分析（演示）',
+                  teacher: '李老师',
+                  startTime: '2026-01-07 14:00',
+                  endTime: '2026-01-07 16:00',
+                  streamUrl: 'rtmp://wspush.qingbeikeji.com/live/peiyou2792072modeldevrandom'
+              }
     ];
   });
 
