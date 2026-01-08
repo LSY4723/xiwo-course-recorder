@@ -22,6 +22,8 @@ yarn-debug.log*
 yarn-error.log*
 *.log.old
 
+$HOME/
+
 # Electron
 electron-builder-cache/
 release/
@@ -84,3 +86,4 @@ ffmpeg/ffmpeg.exe
 ffmpeg/ffprobe
 ffmpeg/ffprobe.exe
 !ffmpeg/README.md
+
