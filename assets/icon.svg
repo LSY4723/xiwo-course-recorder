@@ -1,0 +1,32 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 背景圆形 -->
+  <circle cx="256" cy="256" r="240" fill="#4080FF" stroke="#2668D9" stroke-width="8"/>
+  
+  <!-- 摄像机主体 -->
+  <rect x="140" y="180" width="232" height="180" rx="20" fill="white" stroke="#E6F0FF" stroke-width="4"/>
+  
+  <!-- 摄像机镜头 -->
+  <circle cx="256" cy="270" r="48" fill="#333333"/>
+  <circle cx="256" cy="270" r="32" fill="#555555"/>
+  <circle cx="256" cy="270" r="16" fill="#777777"/>
+  
+  <!-- 摄像机顶部按钮 -->
+  <rect x="220" y="160" width="72" height="24" rx="12" fill="white" stroke="#E6F0FF" stroke-width="4"/>
+  
+  <!-- 屏幕录制图标 -->
+  <path d="M120 120H392V392H120V120Z" fill="none" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M256 180V328M328 256L256 328L184 256" fill="none" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- 音频波形 -->
+  <path d="M100 420H120V360H100V420ZM140 420H160V380H140V420ZM180 420H200V400H180V420ZM220 420H240V360H220V420ZM260 420H280V390H260V420ZM300 420H320V370H300V420ZM340 420H360V390H340V420ZM380 420H400V360H380V420Z" fill="white"/>
+  
+  <!-- 课程书本图标 -->
+  <path d="M360 100V60C360 48.9543 351.046 40 340 40H172C160.954 40 152 48.9543 152 60V100" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M152 100H360" stroke="white" stroke-width="6" stroke-linecap="round"/>
+  <path d="M152 100V352C152 363.046 160.954 372 172 372H340C351.046 372 360 363.046 360 352V100" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M212 160H292" stroke="white" stroke-width="4" stroke-linecap="round"/>
+  <path d="M212 200H292" stroke="white" stroke-width="4" stroke-linecap="round"/>
+  <path d="M212 240H292" stroke="white" stroke-width="4" stroke-linecap="round"/>
+  <path d="M212 280H292" stroke="white" stroke-width="4" stroke-linecap="round"/>
+  <path d="M212 320H292" stroke="white" stroke-width="4" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,862 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background: #F5F7FA;
+    color: #303133;
+    overflow: hidden;
+}
+
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+/* 顶部导航栏 */
+.navbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 24px;
+    background: #4080FF;
+    color: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+}
+
+.nav-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.logo {
+    width: 32px;
+    height: 32px;
+}
+
+.nav-title h1 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.nav-title p {
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    transition: background 0.3s ease;
+}
+
+.user-info:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.logout-btn {
+    padding: 6px 16px;
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.logout-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* 主要内容区域 */
+.main-content {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    padding: 24px;
+    gap: 24px;
+}
+
+.panel {
+    display: none;
+    flex-direction: column;
+    width: 100%;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    animation: slideIn 0.3s ease-out;
+}
+
+.panel.active {
+    display: flex;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.panel-header {
+    padding: 24px;
+    border-bottom: 1px solid #E4E7ED;
+    background: #FAFAFA;
+}
+
+.panel-header h2 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #303133;
+    margin-bottom: 6px;
+}
+
+.panel-header p {
+    font-size: 14px;
+    color: #909399;
+}
+
+/* 课程选择面板 */
+.loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    gap: 16px;
+}
+
+.loading-container .spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #E4E7ED;
+    border-top: 4px solid #4080FF;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-container p {
+    font-size: 14px;
+    color: #909399;
+}
+
+.courses-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.course-card {
+    background: white;
+    border: 1px solid #E4E7ED;
+    border-radius: 12px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.course-card:hover {
+    border-color: #4080FF;
+    box-shadow: 0 4px 16px rgba(64, 128, 255, 0.15);
+    transform: translateY(-2px);
+}
+
+.course-card.selected {
+    border-color: #4080FF;
+    background: rgba(64, 128, 255, 0.05);
+}
+
+.course-card .course-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #303133;
+    margin-bottom: 8px;
+    line-height: 1.4;
+}
+
+.course-card .course-teacher {
+    font-size: 13px;
+    color: #606266;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.course-card .course-time {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    color: #909399;
+}
+
+.course-card .course-time-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.course-card .select-btn {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 24px;
+    height: 24px;
+    border: 2px solid #DCDFE6;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+    opacity: 0;
+}
+
+.course-card:hover .select-btn {
+    opacity: 1;
+}
+
+.course-card.selected .select-btn {
+    background: #4080FF;
+    border-color: #4080FF;
+}
+
+.course-card.selected .select-btn::after {
+    content: '';
+    position: absolute;
+    left: 6px;
+    top: 2px;
+    width: 6px;
+    height: 12px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+.error-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    gap: 16px;
+    color: #F56C6C;
+}
+
+.error-container svg {
+    width: 48px;
+    height: 48px;
+}
+
+.error-container h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.error-container p {
+    font-size: 14px;
+    color: #909399;
+    text-align: center;
+}
+
+.retry-btn {
+    padding: 8px 24px;
+    background: #4080FF;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 16px;
+}
+
+.retry-btn:hover {
+    background: #66B1FF;
+}
+
+.retry-btn.secondary {
+    background: #909399;
+    margin-left: 12px;
+}
+
+.retry-btn.secondary:hover {
+    background: #C0C4CC;
+}
+
+/* 录制控制面板 */
+.recording-settings {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    border-bottom: 1px solid #E4E7ED;
+}
+
+.setting-group {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.setting-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #606266;
+    flex: 1;
+}
+
+.setting-select {
+    padding: 8px 12px;
+    border: 1px solid #DCDFE6;
+    border-radius: 6px;
+    font-size: 14px;
+    color: #606266;
+    background: white;
+    min-width: 180px;
+    transition: all 0.3s ease;
+}
+
+.setting-select:focus {
+    outline: none;
+    border-color: #4080FF;
+    box-shadow: 0 0 0 2px rgba(64, 128, 255, 0.1);
+}
+
+/* 切换开关 */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 48px;
+    height: 24px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #DCDFE6;
+    transition: .4s;
+    border-radius: 24px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: #4080FF;
+}
+
+input:focus + .slider {
+    box-shadow: 0 0 1px #4080FF;
+}
+
+input:checked + .slider:before {
+    transform: translateX(24px);
+}
+
+.recording-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 24px;
+    gap: 16px;
+}
+
+.record-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 32px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 160px;
+    justify-content: center;
+}
+
+.record-btn.start {
+    background: #67C23A;
+    color: white;
+    position: relative;
+    overflow: hidden;
+}
+
+.record-btn.start:hover:not(:disabled) {
+    background: #85CE61;
+    box-shadow: 0 4px 16px rgba(103, 194, 58, 0.2);
+    transform: translateY(-2px);
+}
+
+.record-btn.start.highlight {
+    animation: pulse 2s ease-in-out;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 4px 16px rgba(103, 194, 58, 0.2);
+    }
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 8px 24px rgba(103, 194, 58, 0.4);
+    }
+}
+
+.record-btn.stop {
+    background: #F56C6C;
+    color: white;
+}
+
+.record-btn.stop:hover:not(:disabled) {
+    background: #F78989;
+    box-shadow: 0 4px 16px rgba(245, 108, 108, 0.2);
+    transform: translateY(-2px);
+}
+
+.record-btn.pause {
+    background: #E6A23C;
+    color: white;
+}
+
+.record-btn.pause:hover:not(:disabled) {
+    background: #E8B66F;
+    box-shadow: 0 4px 16px rgba(230, 162, 60, 0.2);
+    transform: translateY(-2px);
+}
+
+.record-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* 录制状态面板 */
+.status-info {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 24px;
+    border-bottom: 1px solid #E4E7ED;
+}
+
+.status-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: #FAFAFA;
+    border-radius: 8px;
+}
+
+.status-item .label {
+    font-size: 14px;
+    color: #909399;
+    font-weight: 500;
+}
+
+.status-item span:last-child {
+    font-size: 14px;
+    color: #303133;
+    font-weight: 500;
+}
+
+.status-badge {
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+    display: inline-block;
+}
+
+.status-badge.online {
+    background-color: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+.status-badge.offline {
+    background-color: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecdd3;
+}
+
+.status-badge.connecting {
+    background-color: #fffbeb;
+    color: #92400e;
+    border: 1px solid #fed7aa;
+}
+
+.recording-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 24px;
+    gap: 16px;
+}
+
+.control-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 120px;
+    justify-content: center;
+}
+
+.control-btn:not(.danger) {
+    background: #4080FF;
+    color: white;
+}
+
+.control-btn:not(.danger):hover:not(:disabled) {
+    background: #66B1FF;
+    box-shadow: 0 4px 16px rgba(64, 128, 255, 0.2);
+}
+
+.control-btn.danger {
+    background: #F56C6C;
+    color: white;
+}
+
+.control-btn.danger:hover:not(:disabled) {
+    background: #F78989;
+    box-shadow: 0 4px 16px rgba(245, 108, 108, 0.2);
+}
+
+.recording-preview {
+    flex: 1;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.recording-preview h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #303133;
+}
+
+.preview-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    background: #FAFAFA;
+    border: 2px dashed #DCDFE6;
+    border-radius: 12px;
+    gap: 16px;
+    flex: 1;
+}
+
+.preview-placeholder svg {
+    width: 64px;
+    height: 64px;
+}
+
+.preview-placeholder p {
+    font-size: 14px;
+    color: #909399;
+    text-align: center;
+}
+
+/* 底部状态栏 */
+.status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 24px;
+    background: white;
+    border-top: 1px solid #E4E7ED;
+    font-size: 12px;
+    color: #909399;
+}
+
+.status-left span {
+    padding: 4px 8px;
+    background: #F0F2F5;
+    border-radius: 4px;
+}
+
+/* 通用工具类 */
+.hidden {
+    display: none !important;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #F1F1F1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #DCDFE6;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #C0C4CC;
+}
+
+/* 引导提示样式 */
+.guide-content {
+    padding: 24px;
+    position: relative;
+}
+
+.guide-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #E4E7ED;
+}
+
+.guide-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #303133;
+}
+
+.guide-content p {
+    margin: 0 0 16px 0;
+    font-size: 14px;
+    color: #606266;
+    line-height: 1.5;
+}
+
+.guide-content ul {
+    margin: 0 0 20px 0;
+    padding-left: 20px;
+    font-size: 14px;
+    color: #606266;
+}
+
+.guide-content li {
+    margin-bottom: 8px;
+    line-height: 1.5;
+}
+
+.guide-action {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: #F6F8FA;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    color: #67C23A;
+    font-weight: 500;
+}
+
+.close-guide-btn {
+    width: 100%;
+    padding: 10px;
+    background: #F5F7FA;
+    border: 1px solid #DCDFE6;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #606266;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.close-guide-btn:hover {
+    background: #ECF5FF;
+    border-color: #4080FF;
+    color: #4080FF;
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideOutRight {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(50px);
+    }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .navbar {
+        padding: 10px 16px;
+    }
+    
+    .nav-title h1 {
+        font-size: 16px;
+    }
+    
+    .nav-title p {
+        display: none;
+    }
+    
+    .main-content {
+        padding: 12px;
+        gap: 12px;
+    }
+    
+    .courses-grid {
+        grid-template-columns: 1fr;
+        padding: 16px;
+        gap: 12px;
+    }
+    
+    .course-card {
+        padding: 16px;
+    }
+    
+    .setting-group {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    
+    .setting-select {
+        width: 100%;
+        min-width: auto;
+    }
+    
+    .recording-actions {
+        flex-direction: column;
+        padding: 20px 16px;
+    }
+    
+    .record-btn {
+        width: 100%;
+        max-width: 280px;
+    }
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+    body {
+        background: #1E1E1E;
+        color: #ECECEC;
+    }
+    
+    .panel {
+        background: #2D2D2D;
+    }
+    
+    .panel-header {
+        background: #333333;
+        border-bottom-color: #444444;
+    }
+    
+    .panel-header h2 {
+        color: #ECECEC;
+    }
+    
+    .course-card {
+        background: #2D2D2D;
+        border-color: #444444;
+    }
+    
+    .course-card:hover {
+        border-color: #4080FF;
+    }
+    
+    .course-card .course-title {
+        color: #ECECEC;
+    }
+    
+    .status-item {
+        background: #333333;
+    }
+    
+    .status-item span:last-child {
+        color: #ECECEC;
+    }
+    
+    .preview-placeholder {
+        background: #333333;
+        border-color: #444444;
+    }
+    
+    .status-bar {
+        background: #2D2D2D;
+        border-top-color: #444444;
+    }
+}

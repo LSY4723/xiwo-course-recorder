@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>希沃课程录制系统 - 主界面</title>
+    <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 顶部导航栏 -->
+        <header class="navbar">
+            <div class="nav-left">
+                <div class="logo">
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="32" height="32" rx="6" fill="#4080FF"/>
+                        <path d="M13 16L16 13L19 16V21H13V16Z" fill="white"/>
+                        <path d="M15 18.5H17V21H15V18.5Z" fill="white"/>
+                    </svg>
+                </div>
+                <div class="nav-title">
+                    <h1>希沃课程录制系统</h1>
+                    <p id="currentCourseName">欢迎使用，请选择课程开始录制</p>
+                </div>
+            </div>
+            <div class="nav-right">
+                <div class="user-info">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M12 20C15.3137 20 18 18.3137 18 15H6C6 18.3137 8.68629 20 12 20Z" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span id="userName">用户</span>
+                </div>
+                <button id="logoutBtn" class="logout-btn">退出登录</button>
+            </div>
+        </header>
+        
+        <!-- 主要内容区域 -->
+        <main class="main-content">
+            <!-- 紧急录制按钮（始终可见） -->
+            <div class="emergency-controls" style="position: fixed; bottom: 40px; right: 40px; z-index: 1000; display: flex; flex-direction: column; gap: 12px;">
+                <button id="emergencyStartBtn" style="
+                    padding: 16px 24px;
+                    background: #67C23A;
+                    color: white;
+                    border: none;
+                    border-radius: 50px;
+                    font-size: 14px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    box-shadow: 0 4px 16px rgba(103, 194, 58, 0.3);
+                    transition: all 0.3s ease;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(103, 194, 58, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 16px rgba(103, 194, 58, 0.3)'">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M10 13L13 10L10 7" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M7 10H13" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    开始录制
+                </button>
+                <button id="emergencyPauseBtn" style="
+                    padding: 16px 24px;
+                    background: #E6A23C;
+                    color: white;
+                    border: none;
+                    border-radius: 50px;
+                    font-size: 14px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    box-shadow: 0 4px 16px rgba(230, 162, 60, 0.3);
+                    transition: all 0.3s ease;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    display: none;
+                " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(230, 162, 60, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 16px rgba(230, 162, 60, 0.3)'">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="6" y="6" width="3" height="10" fill="white"/>
+                        <rect x="11" y="6" width="3" height="10" fill="white"/>
+                    </svg>
+                    暂停录制
+                </button>
+                <button id="emergencyStopBtn" style="
+                    padding: 16px 24px;
+                    background: #F56C6C;
+                    color: white;
+                    border: none;
+                    border-radius: 50px;
+                    font-size: 14px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    box-shadow: 0 4px 16px rgba(245, 108, 108, 0.3);
+                    transition: all 0.3s ease;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    display: none;
+                " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(245, 108, 108, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 16px rgba(245, 108, 108, 0.3)'">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="5" y="5" width="10" height="10" rx="2" fill="white"/>
+                    </svg>
+                    停止录制
+                </button>
+            </div>
+            
+            <!-- 课程选择面板 -->
+            <section id="courseSelection" class="panel active">
+                <div class="panel-header">
+                    <h2>课程选择</h2>
+                    <p>请选择您要录制的课程</p>
+                </div>
+                
+                <div id="coursesLoading" class="loading-container">
+                    <div class="spinner"></div>
+                    <p>加载课程列表中...</p>
+                </div>
+                
+                <div id="coursesList" class="courses-grid hidden">
+                    <!-- 课程卡片将通过JavaScript动态生成 -->
+                </div>
+                
+                <div id="coursesError" class="error-container hidden">
+                    <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M24 32C26.2091 32 28 30.2091 28 28V20C28 17.7909 26.2091 16 24 16C21.7909 16 20 17.7909 20 20V28C20 30.2091 21.7909 32 24 32Z" fill="#F56C6C"/>
+                        <path d="M24 36C32.8366 36 40 30.8366 40 24C40 17.1634 32.8366 12 24 12C15.1634 12 8 17.1634 8 24C8 30.8366 15.1634 36 24 36Z" stroke="#F56C6C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <h3>加载失败</h3>
+                    <p id="coursesErrorMessage">无法获取课程列表，请稍后重试</p>
+                    <button id="reloadCoursesBtn" class="retry-btn">重新加载</button>
+                    <button id="loadMockCoursesBtn" class="retry-btn secondary">加载演示课程</button>
+                </div>
+            </section>
+            
+            <!-- 录制控制面板 -->
+            <section id="recordingControl" class="panel hidden">
+                <div class="panel-header">
+                    <h2>录制控制</h2>
+                    <p id="selectedCourseInfo">正在录制: 课程名称</p>
+                </div>
+                
+                <div class="recording-settings">
+                    <div class="setting-group">
+                        <label class="setting-label">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M2.5 5H17.5C18.3284 5 19 5.67157 19 6.5V13.5C19 14.3284 18.3284 15 17.5 15H2.5C1.67157 15 1 14.3284 1 13.5V6.5C1 5.67157 1.67157 5 2.5 5Z" stroke="#4080FF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M8 15V19" stroke="#4080FF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M12 15V19" stroke="#4080FF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            录制显示器
+                        </label>
+                        <select id="displaySelector" class="setting-select">
+                            <!-- 显示器选项将通过JavaScript动态生成 -->
+                        </select>
+                    </div>
+                    
+                    <div class="setting-group">
+                        <label class="setting-label">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12.5 12.5L15 15" stroke="#4080FF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M15 10H16.25C16.6642 10 17 10.3358 17 10.75V14.25C17 14.6642 16.6642 15 16.25 15H3.75C3.33579 15 3 14.6642 3 14.25V10.75C3 10.3358 3.33579 10 3.75 10H5" stroke="#4080FF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M10 3V10L15 5" stroke="#4080FF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            录制音频
+                        </label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="recordAudioToggle" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="setting-group">
+                        <label class="setting-label">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M17.5 10L11 16.5L8.5 14" stroke="#4080FF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M17.5 10L11 3.5L8.5 6" stroke="#4080FF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M17.5 10H5C4.58579 10 4.20107 10.1574 3.91421 10.4442C3.62736 10.7311 3.5 11.1157 3.5 11.5157L3.5 14.5157C3.5 15.3441 4.17157 16 5 16H15" stroke="#4080FF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            实时推流
+                        </label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="pushStreamToggle" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="recording-actions">
+                    <button id="startRecordingBtn" class="record-btn start">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M15.0001 12C15.0001 13.6569 13.6569 15.0001 12.0001 15.0001C10.3432 15.0001 9.00006 13.6569 9.00006 12C9.00006 10.3432 10.3432 9.00006 12.0001 9.00006C13.6569 9.00006 15.0001 10.3432 15.0001 12Z" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        开始录制
+                    </button>
+                    
+                    <button id="pauseRecordingBtn" class="record-btn pause hidden">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="6" y="6" width="12" height="12" rx="2" fill="white"/>
+                        </svg>
+                        暂停录制
+                    </button>
+                    
+                    <button id="stopRecordingBtn" class="record-btn stop hidden">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="6" y="6" width="12" height="12" rx="2" fill="white"/>
+                        </svg>
+                        停止录制
+                    </button>
+                </div>
+            </section>
+            
+            <!-- 录制状态面板 -->
+            <section id="recordingStatus" class="panel hidden">
+                <div class="panel-header">
+                    <h2>录制中</h2>
+                    <p id="recordingCourseName">课程名称</p>
+                </div>
+                
+                <div class="status-info">
+                    <div class="status-item">
+                        <span class="label">开始时间:</span>
+                        <span id="recordingStartTime">--:--:--</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="label">录制时长:</span>
+                        <span id="recordingDuration">00:00:00</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="label">输出路径:</span>
+                        <span id="recordingOutputPath">-</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="label">推流状态:</span>
+                        <span id="streamingStatus">
+                            <span class="status-badge offline">未推流</span>
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="recording-controls">
+                    <button id="pauseRecordingBtn" class="control-btn">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="6" y="5" width="3" height="10" fill="white"/>
+                            <rect x="11" y="5" width="3" height="10" fill="white"/>
+                        </svg>
+                        暂停
+                    </button>
+                    
+                    <button id="stopRecordingBtn2" class="control-btn danger">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="5" y="5" width="10" height="10" rx="2" fill="white"/>
+                        </svg>
+                        停止
+                    </button>
+                </div>
+                
+                <div class="recording-preview">
+                    <h3>录制预览</h3>
+                    <div class="preview-placeholder">
+                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M32 4C16.4772 4 4 16.4772 4 32C4 47.5228 16.4772 60 32 60C47.5228 60 60 47.5228 60 32C60 16.4772 47.5228 4 32 4Z" stroke="#C0C4CC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M22 22L42 32L22 42V22Z" stroke="#C0C4CC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <p>录制预览将在开始录制后显示</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+        
+        <!-- 底部状态栏 -->
+        <footer class="status-bar">
+            <div class="status-left">
+                <span id="appStatus">就绪</span>
+            </div>
+            <div class="status-right">
+                <span id="currentTime">--:--:--</span>
+            </div>
+        </footer>
+    </div>
+    
+    <script src="scripts/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+{
+  "app": {
+    "name": "希沃课程录制系统",
+    "version": "1.0.0",
+    "author": "",
+    "description": "跨平台课程录制应用",
+    "copyright": "Copyright © 2026"
+  },
+  "api": {
+    "base_url": "https://api.example.com",
+    "timeout": 30000,
+    "retry_count": 3
+  },
+  "recording": {
+    "default_display_index": 0,
+    "default_record_audio": true,
+    "default_push_stream": true,
+    "framerate": 30,
+    "video_codec": "libx264",
+    "audio_codec": "aac",
+    "crf": 23,
+    "audio_bitrate": "128k",
+    "preset": "ultrafast"
+  },
+  "push_stream": {
+    "provider": "wangsu",
+    "rtmp_url": "rtmp://push.wscdn.com/live/",
+    "auth_key": "your-auth-key",
+    "stream_prefix": "xiwo-course-"
+  },
+  "output": {
+    "default_directory": "XiwoCourses",
+    "file_format": "mp4",
+    "max_file_size": "10GB",
+    "auto_cleanup": true,
+    "keep_days": 30
+  },
+  "ui": {
+    "theme": "system",
+    "language": "zh-CN",
+    "window_size": {
+      "width": 1200,
+      "height": 800
+    },
+    "login_window_size": {
+      "width": 400,
+      "height": 500
+    },
+    "show_notifications": true,
+    "play_sounds": true
+  },
+  "debug": {
+    "enabled": false,
+    "log_level": "info",
+    "save_logs": true,
+    "log_directory": "logs",
+    "log_max_size": "5MB"
+  },
+  "features": {
+    "multi_display": true,
+    "audio_recording": true,
+    "push_stream": true,
+    "course_management": true,
+    "auto_save": true,
+    "keyboard_shortcuts": true,
+    "screenshot": true
+  }
+}
