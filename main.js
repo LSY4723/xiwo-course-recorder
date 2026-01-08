@@ -76,6 +76,8 @@ function createPreloadScript() {
       resumeRecording: () => ipcRenderer.invoke('resume-recording'),
       getRecordingStatus: () => ipcRenderer.invoke('get-recording-status'),
       detectAvfoundationDevices: () => ipcRenderer.invoke('detect-avfoundation-devices'),
+      detectAudioDevices: () => ipcRenderer.invoke('detect-audio-devices'),
+      detectScreenDevices: () => ipcRenderer.invoke('detect-screen-devices'),
       testFfmpeg: () => ipcRenderer.invoke('test-ffmpeg'),
       
       // 窗口相关
@@ -83,7 +85,7 @@ function createPreloadScript() {
       showWindow: () => ipcRenderer.invoke('show-window'),
     });
   `;
-  
+
   try {
     fs.writeFileSync(path.join(__dirname, 'preload.js'), preloadContent);
     console.log('预加载脚本已创建');
@@ -179,7 +181,7 @@ function setupIpcHandlers() {
   // 录制操作
   ipcMain.handle('start-recording', (event, options) => {
     console.log('开始录制:', options);
-    
+
     // 检查是否已经在录制
     if (isRecording) {
       return {
@@ -187,7 +189,7 @@ function setupIpcHandlers() {
         error: '已经在录制中'
       };
     }
-    
+
     // 检查FFmpeg是否存在
     if (!checkFfmpegExists()) {
       return {
@@ -195,7 +197,7 @@ function setupIpcHandlers() {
         error: 'FFmpeg 不存在或无执行权限，请参考 ffmpeg/README.md 安装'
       };
     }
-    
+
     // 检查屏幕录制权限（macOS）
     if (process.platform === 'darwin') {
       try {
@@ -210,59 +212,50 @@ function setupIpcHandlers() {
         console.warn('检查屏幕录制权限失败:', error.message);
       }
     }
-    
+
     try {
       // 验证和处理参数
       const displayIndex = isNaN(options.displayIndex) ? 0 : parseInt(options.displayIndex);
       const recordAudio = options.recordAudio === true;
       const pushStream = options.pushStream === true;
       const streamUrl = options.streamUrl || '';
-      
+
       const ffmpegPath = getFfmpegPath();
       const outputPath = generateOutputPath();
       currentRecordingPath = outputPath;
-      
+
       // 构建FFmpeg命令参数
       const args = [];
-      
+      // 针对所有平台的统一处理
       // 添加屏幕捕获参数
       const screenArgs = getScreenCaptureArgs(displayIndex);
       args.push(...screenArgs);
-      
+
       // 添加音频捕获参数（如果需要）
       if (recordAudio) {
         try {
+          args.push(...getAudioCaptureArgs());
+          // 如果是macOS，需要指定音频流
           if (process.platform === 'darwin') {
-            // 在macOS上，我们需要修改屏幕捕获参数来包含音频
-            // 找到-i参数的位置
-            const iIndex = args.indexOf('-i');
-            if (iIndex !== -1 && iIndex + 1 < args.length) {
-              // 将原来的 "1:none" 改为 "1:0" 以包含音频
-              const inputArg = args[iIndex + 1];
-              if (inputArg.endsWith(':none')) {
-                args[iIndex + 1] = inputArg.replace(':none', ':0');
-              }
-            }
-          } else {
-            // 其他平台添加单独的音频捕获
-            args.push(...getAudioCaptureArgs());
+            args.push('-map', '0:v', '-map', '1:a');
           }
         } catch (error) {
           console.warn('音频捕获配置失败:', error.message);
         }
       }
-      
+
+
       // 添加编码参数
       args.push(
-        '-c:v', 'libx264',
-        '-preset', 'ultrafast',
-        '-crf', '23',
-        '-c:a', 'aac',
-        '-b:a', '128k',
-        '-y'
+          '-c:v', 'libx264',
+          '-preset', 'ultrafast',
+          '-crf', '23',
+          '-c:a', 'aac',
+          '-b:a', '128k',
+          '-y'
       );
 
-// 添加输出路径
+      // 添加输出路径
       if (options.pushStream && options.streamUrl) {
         // 修复tee复用器参数格式，避免SIGABRT错误
         // 使用更简单的格式，避免复杂的map参数导致FFmpeg内部错误
@@ -275,15 +268,15 @@ function setupIpcHandlers() {
         args.push(outputPath);
       }
 
-      
+
       log.info('FFmpeg 命令:', args.join(' '));
-      
+
       // 启动FFmpeg进程
       log.info('启动FFmpeg进程，路径:', ffmpegPath);
       log.info('当前工作目录:', process.cwd());
       log.info('当前用户:', process.env.USER);
       log.info('当前UID/GID:', process.getuid(), '/', process.getgid());
-      
+
       try {
         if (fs.existsSync(ffmpegPath)) {
           const stats = fs.statSync(ffmpegPath);
@@ -297,26 +290,26 @@ function setupIpcHandlers() {
         log.error('检查FFmpeg文件失败:', err);
         throw err;
       }
-      
+
       // 添加更多调试参数
       const debugArgs = [
         '-loglevel', 'verbose',  // 更详细的日志
         '-report'  // 生成详细报告文件
       ];
-      
+
       const fullArgs = [...debugArgs, ...args];
-      
+
       log.debug('完整FFmpeg参数:', fullArgs);
-      
+
       ffmpegProcess = spawn(ffmpegPath, fullArgs, {
         stdio: ['pipe', 'pipe', 'pipe'],
         env: { ...process.env, PATH: process.env.PATH + ':' + path.dirname(ffmpegPath) },
         detached: false
       });
       isRecording = true;
-      
+
       log.info('FFmpeg进程已启动，PID:', ffmpegProcess.pid);
-      
+
       // 捕获FFmpeg输出
       let stderrBuffer = '';
       ffmpegProcess.stdout.on('data', (data) => {
@@ -325,7 +318,7 @@ function setupIpcHandlers() {
           log.debug('FFmpeg stdout:', output);
         }
       });
-      
+
       ffmpegProcess.stderr.on('data', (data) => {
         const output = data.toString().trim();
         if (output) {
@@ -340,12 +333,12 @@ function setupIpcHandlers() {
           }
         }
       });
-      
+
       ffmpegProcess.on('error', (error) => {
         log.error('FFmpeg 启动失败:', error);
         log.error('错误类型:', error.code);
         log.error('错误原因:', error.message);
-        
+
         // 常见错误处理
         if (error.code === 'ENOENT') {
           log.error('FFmpeg 可执行文件不存在，请检查路径:', ffmpegPath);
@@ -373,14 +366,14 @@ function setupIpcHandlers() {
         } else if (error.code === 'ETIMEDOUT') {
           log.error('FFmpeg 启动超时');
         }
-        
+
         isRecording = false;
         ffmpegProcess = null;
       });
-      
+
       ffmpegProcess.on('close', (code, signal) => {
         log.info('FFmpeg 进程结束，退出码:', code, '信号:', signal);
-        
+
         // 保存完整的stderr输出到文件
         if (stderrBuffer) {
           const logDir = path.join(app.getPath('userData'), 'logs');
@@ -392,13 +385,13 @@ function setupIpcHandlers() {
           log.info('FFmpeg完整日志已保存到:', logPath);
           log.debug('FFmpeg stderr内容:', stderrBuffer);
         }
-        
+
         isRecording = false;
         ffmpegProcess = null;
-        
+
         if (signal) {
           log.error('FFmpeg 被信号终止:', signal);
-          
+
           if (signal === 'SIGSEGV') {
             log.error('FFmpeg 段错误崩溃 (SIGSEGV)');
             console.error('可能原因:');
@@ -427,7 +420,7 @@ function setupIpcHandlers() {
             console.error('FFmpeg 被强制杀死 (SIGKILL)');
             console.error('可能原因: 系统资源不足或OOM killer');
           }
-          
+
           // macOS特定建议
           if (process.platform === 'darwin') {
             console.error('macOS 特定排查:');
@@ -438,7 +431,7 @@ function setupIpcHandlers() {
           }
         } else if (code !== 0 && code !== null) {
           console.error('FFmpeg 异常退出，退出码:', code);
-          
+
           // 常见退出码含义
           if (code === 1) {
             console.error('FFmpeg 遇到一般错误');
@@ -455,13 +448,13 @@ function setupIpcHandlers() {
           console.log('FFmpeg 录制成功完成');
         }
       });
-      
+
       return {
         success: true,
         status: 'started',
         outputPath: outputPath
       };
-      
+
     } catch (error) {
       console.error('开始录制失败:', error);
       return {
@@ -473,18 +466,18 @@ function setupIpcHandlers() {
 
   ipcMain.handle('stop-recording', () => {
     console.log('停止录制');
-    
+
     if (!isRecording || !ffmpegProcess) {
       return {
         success: false,
         error: '没有正在进行的录制'
       };
     }
-    
+
     try {
       // 向FFmpeg进程发送q命令优雅停止
       ffmpegProcess.stdin.write('q\n');
-      
+
       // 设置超时强制终止
       setTimeout(() => {
         if (ffmpegProcess && !ffmpegProcess.killed) {
@@ -492,16 +485,16 @@ function setupIpcHandlers() {
           ffmpegProcess.kill('SIGKILL');
         }
       }, 5000);
-      
+
       const outputPath = currentRecordingPath;
       currentRecordingPath = null;
-      
+
       return {
         success: true,
         status: 'stopped',
         outputPath: outputPath
       };
-      
+
     } catch (error) {
       console.error('停止录制失败:', error);
       return {
@@ -513,22 +506,22 @@ function setupIpcHandlers() {
 
   ipcMain.handle('pause-recording', () => {
     console.log('暂停录制');
-    
+
     if (!isRecording || !ffmpegProcess) {
       return {
         success: false,
         error: '没有正在进行的录制'
       };
     }
-    
+
     try {
       // 向FFmpeg进程发送p命令暂停
       ffmpegProcess.stdin.write('p\n');
-      
+
       return {
         success: true
       };
-      
+
     } catch (error) {
       console.error('暂停录制失败:', error);
       return {
@@ -540,22 +533,22 @@ function setupIpcHandlers() {
 
   ipcMain.handle('resume-recording', () => {
     console.log('恢复录制');
-    
+
     if (!isRecording || !ffmpegProcess) {
       return {
         success: false,
         error: '没有正在进行的录制'
       };
     }
-    
+
     try {
       // 向FFmpeg进程发送p命令恢复
       ffmpegProcess.stdin.write('p\n');
-      
+
       return {
         success: true
       };
-      
+
     } catch (error) {
       console.error('恢复录制失败:', error);
       return {
@@ -569,10 +562,10 @@ function setupIpcHandlers() {
   ipcMain.handle('test-ffmpeg', async () => {
     return new Promise((resolve) => {
       const ffmpegPath = getFfmpegPath();
-      
+
       // 测试FFmpeg版本
       const versionProcess = spawn(ffmpegPath, ['-version']);
-      
+
       versionProcess.on('error', (error) => {
         resolve({
           success: false,
@@ -580,7 +573,7 @@ function setupIpcHandlers() {
           details: error.message
         });
       });
-      
+
       versionProcess.on('close', (code) => {
         if (code === 0) {
           // 测试设备检测
@@ -646,22 +639,22 @@ function setupIpcHandlers() {
     return {
       success: true,
       courses: [
-       {
-                   id: 'mock-001',
-                   name: '前端开发入门（演示）',
-                   teacher: '张老师',
-                   startTime: '2026-01-06 09:00',
-                   endTime: '2026-01-06 11:00',
-                   streamUrl: 'rtmp://wspush.qingbeikeji.com/live/peiyou2792072stumodeldevrandom'
-               },
-               {
-                   id: 'mock-002',
-                   name: 'Python数据分析（演示）',
-                   teacher: '李老师',
-                   startTime: '2026-01-07 14:00',
-                   endTime: '2026-01-07 16:00',
-                   streamUrl: 'rtmp://wspush.qingbeikeji.com/live/peiyou2792072modeldevrandom'
-               }
+        {
+          id: 'mock-001',
+          name: '前端开发入门（演示）',
+          teacher: '张老师',
+          startTime: '2026-01-06 09:00',
+          endTime: '2026-01-06 11:00',
+          streamUrl: 'rtmp://wspush.qingbeikeji.com/live/peiyou2792072stumodeldevrandom'
+        },
+        {
+          id: 'mock-002',
+          name: 'Python数据分析（演示）',
+          teacher: '李老师',
+          startTime: '2026-01-07 14:00',
+          endTime: '2026-01-07 16:00',
+          streamUrl: 'rtmp://wspush.qingbeikeji.com/live/peiyou2792072modeldevrandom'
+        }
       ]
     };
   });
@@ -670,21 +663,21 @@ function setupIpcHandlers() {
     // 返回演示课程数据
     return [
       {
-                  id: 'mock-001',
-                  name: '前端开发入门（演示）',
-                  teacher: '张老师',
-                  startTime: '2026-01-06 09:00',
-                  endTime: '2026-01-06 11:00',
-                  streamUrl: 'rtmp://wspush.qingbeikeji.com/live/peiyou2792072stumodeldevrandom'
-              },
-              {
-                  id: 'mock-002',
-                  name: 'Python数据分析（演示）',
-                  teacher: '李老师',
-                  startTime: '2026-01-07 14:00',
-                  endTime: '2026-01-07 16:00',
-                  streamUrl: 'rtmp://wspush.qingbeikeji.com/live/peiyou2792072modeldevrandom'
-              }
+        id: 'mock-001',
+        name: '前端开发入门（演示）',
+        teacher: '张老师',
+        startTime: '2026-01-06 09:00',
+        endTime: '2026-01-06 11:00',
+        streamUrl: 'rtmp://wspush.qingbeikeji.com/live/peiyou2792072stumodeldevrandom'
+      },
+      {
+        id: 'mock-002',
+        name: 'Python数据分析（演示）',
+        teacher: '李老师',
+        startTime: '2026-01-07 14:00',
+        endTime: '2026-01-07 16:00',
+        streamUrl: 'rtmp://wspush.qingbeikeji.com/live/peiyou2792072modeldevrandom'
+      }
     ];
   });
 
@@ -716,7 +709,7 @@ function setupIpcHandlers() {
         devices: []
       };
     }
-    
+
     try {
       const devices = await detectAvfoundationDevices();
       return {
@@ -725,6 +718,47 @@ function setupIpcHandlers() {
       };
     } catch (error) {
       console.error('检测AVFoundation设备失败:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  });
+
+  // 检测音频设备
+  ipcMain.handle('detect-audio-devices', async () => {
+    try {
+      const devices = await detectAudioDevices();
+      return {
+        success: true,
+        devices: devices
+      };
+    } catch (error) {
+      console.error('检测音频设备失败:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  });
+
+  // 检测屏幕设备（仅macOS）
+  ipcMain.handle('detect-screen-devices', async () => {
+    if (process.platform !== 'darwin') {
+      return {
+        success: true,
+        devices: []
+      };
+    }
+
+    try {
+      const devices = await detectScreenDevices();
+      return {
+        success: true,
+        devices: devices
+      };
+    } catch (error) {
+      console.error('检测屏幕设备失败:', error);
       return {
         success: false,
         error: error.message
@@ -896,7 +930,7 @@ app.on('window-all-closed', function () {
 // FFmpeg 相关函数
 function getFfmpegPath() {
   let ffmpegPath = '';
-  
+
   switch (process.platform) {
     case 'win32':
       ffmpegPath = path.join(__dirname, 'ffmpeg', 'ffmpeg.exe');
@@ -908,11 +942,11 @@ function getFfmpegPath() {
     default:
       ffmpegPath = 'ffmpeg';
   }
-  
+
   log.debug('FFmpeg路径计算:', ffmpegPath);
   log.debug('__dirname:', __dirname);
   log.debug('是否存在:', fs.existsSync(ffmpegPath));
-  
+
   if (fs.existsSync(ffmpegPath)) {
     try {
       const stats = fs.statSync(ffmpegPath);
@@ -922,7 +956,7 @@ function getFfmpegPath() {
       log.error('获取文件信息失败:', err);
     }
   }
-  
+
   return ffmpegPath;
 }
 
@@ -932,24 +966,24 @@ function detectAvfoundationDevices() {
       resolve([]);
       return;
     }
-    
+
     const ffmpegPath = getFfmpegPath();
     const args = ['-f', 'avfoundation', '-list_devices', 'true', '-i', ''];
-    
+
     const process = spawn(ffmpegPath, args);
     let output = '';
-    
+
     process.stderr.on('data', (data) => {
       output += data.toString();
     });
-    
+
     process.on('close', (code) => {
       const devices = [];
       const lines = output.split('\n');
-      
+
       let inVideoDevices = false;
       let inAudioDevices = false;
-      
+
       lines.forEach(line => {
         if (line.includes('AVFoundation video devices:')) {
           inVideoDevices = true;
@@ -979,10 +1013,10 @@ function detectAvfoundationDevices() {
           }
         }
       });
-      
+
       resolve(devices);
     });
-    
+
     process.on('error', (error) => {
       reject(error);
     });
@@ -1002,61 +1036,179 @@ function checkFfmpegExists() {
 
 function getScreenCaptureArgs(displayIndex = 0) {
   const args = [];
-  
+
   switch (process.platform) {
     case 'win32':
       // Windows 屏幕捕获
-      args.push('-f', 'gdigrab', '-i', 'desktop');
+      args.push('-f', 'gdigrab', '-framerate', '30', '-i', 'desktop');
       break;
     case 'darwin':
       // macOS 屏幕捕获
-      // 在macOS上，AVFoundation设备索引从1开始，0是默认输入
-      // 格式: "1:0" 表示第一个屏幕，不包含音频
-      args.push('-f', 'avfoundation', '-framerate', '30', '-pixel_format', 'uyvy422', '-i', `${displayIndex + 1}:none`);
+      // AVFoundation 在 macOS 上使用 "screen_capture_device:audio_device" 格式
+      // 屏幕设备通常从 1 开始编号，例如 "1:none" 表示第一个屏幕，无音频
+      args.push('-f', 'avfoundation', '-framerate', '30', '-pixel_format', 'uyvy422');
+
+      // 在 macOS 上，屏幕设备编号与显示器索引的关系
+      // 根据用户测试，设备编号2是正确的屏幕录制设备
+      args.push('-i', `2:none`);
       break;
     case 'linux':
       // Linux 屏幕捕获
-      args.push('-f', 'x11grab', '-i', `${process.env.DISPLAY}.0`);
+      args.push('-f', 'x11grab', '-framerate', '30', '-i', `${process.env.DISPLAY}.0`);
       break;
     default:
       throw new Error('不支持的操作系统');
   }
-  
+
   return args;
 }
 
+
+
 function getAudioCaptureArgs() {
   const args = [];
-  
+
   switch (process.platform) {
     case 'win32':
-      // Windows 音频捕获
-      args.push('-f', 'dshow', '-i', 'audio="麦克风 (Realtek Audio)"');
+      // Windows 音频捕获 - 使用系统音频
+      args.push('-f', 'dshow', '-i', 'audio="虚拟音频电缆 (Virtual Audio Cable)"');
       break;
     case 'darwin':
-      // macOS 音频捕获
-      // 单独的音频捕获设备
-      args.push('-f', 'avfoundation', '-i', `:0`);
+      // macOS 音频捕获 - 使用系统音频
+      args.push('-f', 'avfoundation', '-i', ':0');
       break;
     case 'linux':
-      // Linux 音频捕获
+      // Linux 音频捕获 - 使用 PulseAudio
       args.push('-f', 'pulse', '-i', 'default');
       break;
     default:
       throw new Error('不支持的操作系统');
   }
-  
+
   return args;
+}
+
+function detectAudioDevices() {
+  return new Promise((resolve, reject) => {
+    const ffmpegPath = getFfmpegPath();
+    let args = [];
+
+    switch (process.platform) {
+      case 'win32':
+        args = ['-list_devices', 'true', '-f', 'dshow', '-i', 'dummy'];
+        break;
+      case 'darwin':
+        args = ['-f', 'avfoundation', '-list_devices', 'true', '-i', ''];
+        break;
+      case 'linux':
+        args = ['-f', 'pulse', '-list_devices', 'true', '-i', ''];
+        break;
+      default:
+        resolve([]);
+        return;
+    }
+
+    const process = spawn(ffmpegPath, args);
+    let output = '';
+
+    process.stderr.on('data', (data) => {
+      output += data.toString();
+    });
+
+    process.on('close', (code) => {
+      const devices = [];
+      const lines = output.split('\n');
+
+      lines.forEach(line => {
+        if (process.platform === 'win32' && line.includes('audio')) {
+          const match = line.match(/"(.*)"/);
+          if (match) {
+            devices.push({ type: 'audio', name: match[1] });
+          }
+        } else if (process.platform === 'darwin' && line.includes('AVFoundation audio devices:')) {
+          // macOS 音频设备解析
+          const audioLines = lines.slice(lines.indexOf(line) + 1);
+          audioLines.forEach(audioLine => {
+            if (audioLine.trim().startsWith('[')) {
+              const match = audioLine.match(/\[(\d+)\] (.*)/);
+              if (match) {
+                devices.push({ type: 'audio', index: parseInt(match[1]), name: match[2].trim() });
+              }
+            }
+          });
+        } else if (process.platform === 'linux' && line.includes('PulseAudio source devices:')) {
+          // Linux 音频设备解析
+          const audioLines = lines.slice(lines.indexOf(line) + 1);
+          audioLines.forEach(audioLine => {
+            if (audioLine.trim()) {
+              devices.push({ type: 'audio', name: audioLine.trim() });
+            }
+          });
+        }
+      });
+
+      resolve(devices);
+    });
+
+    process.on('error', (error) => {
+      reject(error);
+    });
+  });
+}
+
+function detectScreenDevices() {
+  return new Promise((resolve, reject) => {
+    if (process.platform !== 'darwin') {
+      resolve([]);
+      return;
+    }
+
+    const ffmpegPath = getFfmpegPath();
+    const args = ['-f', 'avfoundation', '-list_devices', 'true', '-i', ''];
+
+    const process = spawn(ffmpegPath, args);
+    let output = '';
+
+    process.stderr.on('data', (data) => {
+      output += data.toString();
+    });
+
+    process.on('close', (code) => {
+      const devices = [];
+      const lines = output.split('\n');
+
+      let inScreenDevices = false;
+      lines.forEach(line => {
+        if (line.includes('AVFoundation screen devices:')) {
+          inScreenDevices = true;
+        } else if (line.includes('AVFoundation audio devices:')) {
+          inScreenDevices = false;
+        } else if (inScreenDevices && line.trim().startsWith('[')) {
+          // 解析屏幕设备
+          const match = line.match(/\[(\d+)\] (.*)/);
+          if (match) {
+            devices.push({ type: 'screen', index: parseInt(match[1]), name: match[2].trim() });
+          }
+        }
+      });
+
+      resolve(devices);
+    });
+
+    process.on('error', (error) => {
+      reject(error);
+    });
+  });
 }
 
 function generateOutputPath() {
   const date = new Date();
   const timestamp = `${date.getFullYear()}${(date.getMonth()+1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}_${date.getHours().toString().padStart(2, '0')}${date.getMinutes().toString().padStart(2, '0')}${date.getSeconds().toString().padStart(2, '0')}`;
-  
+
   const outputDir = path.join(__dirname, 'recordings');
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
   }
-  
+
   return path.join(outputDir, `recording_${timestamp}.mp4`);
 }

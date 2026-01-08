@@ -34,6 +34,8 @@
       resumeRecording: () => ipcRenderer.invoke('resume-recording'),
       getRecordingStatus: () => ipcRenderer.invoke('get-recording-status'),
       detectAvfoundationDevices: () => ipcRenderer.invoke('detect-avfoundation-devices'),
+      detectAudioDevices: () => ipcRenderer.invoke('detect-audio-devices'),
+      detectScreenDevices: () => ipcRenderer.invoke('detect-screen-devices'),
       testFfmpeg: () => ipcRenderer.invoke('test-ffmpeg'),
       
       // 窗口相关
