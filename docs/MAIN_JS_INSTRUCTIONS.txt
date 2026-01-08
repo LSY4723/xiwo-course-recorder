@@ -1,0 +1,9 @@
+Insert at top near other requires/imports:
+
+const { initFfmpegIpc } = require('./src/utils/ffmpeg-ipc');
+
+and after the BrowserWindow (mainWindow) has been created and ipcMain is available, add:
+
+initFfmpegIpc(ipcMain, mainWindow);
+
+If main.js is absent, create a file with the minimal snippet that requires electron, creates a BrowserWindow and calls initFfmpegIpc. Otherwise, only modify main.js as described above.
