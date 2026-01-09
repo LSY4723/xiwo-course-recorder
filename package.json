@@ -41,7 +41,8 @@
       "**/*",
       "!node_modules/**/*",
       "node_modules/fluent-ffmpeg/**/*",
-      "node_modules/@ffmpeg-installer/**/*"
+      "node_modules/@ffmpeg-installer/**/*",
+      "node_modules/electron-log/**/*"
     ],
     "extraResources": [
       {

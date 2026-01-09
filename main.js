@@ -931,13 +931,24 @@ app.on('window-all-closed', function () {
 function getFfmpegPath() {
   let ffmpegPath = '';
 
+  // 检查是否是开发环境
+  const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+
   switch (process.platform) {
     case 'win32':
-      ffmpegPath = path.join(__dirname, 'ffmpeg', 'ffmpeg.exe');
+      if (isDev) {
+        ffmpegPath = path.join(__dirname, 'ffmpeg', 'ffmpeg.exe');
+      } else {
+        ffmpegPath = path.join(process.resourcesPath, 'ffmpeg', 'ffmpeg.exe');
+      }
       break;
     case 'darwin':
     case 'linux':
-      ffmpegPath = path.join(__dirname, 'ffmpeg', 'ffmpeg');
+      if (isDev) {
+        ffmpegPath = path.join(__dirname, 'ffmpeg', 'ffmpeg');
+      } else {
+        ffmpegPath = path.join(process.resourcesPath, 'ffmpeg', 'ffmpeg');
+      }
       break;
     default:
       ffmpegPath = 'ffmpeg';
@@ -1210,5 +1221,5 @@ function generateOutputPath() {
     fs.mkdirSync(outputDir, { recursive: true });
   }
 
-  return path.join(outputDir, `recording_${timestamp}.mp4`);
+  return path.join(outputDir, `recording_${timestamp}.flv`);
 }
