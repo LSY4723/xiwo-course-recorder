@@ -14,14 +14,18 @@ const logDir = path.join(app.getPath('userData'), 'logs');
 if (!fs.existsSync(logDir)) {
   fs.mkdirSync(logDir, { recursive: true });
 }
-log.transports.file.file = path.join(logDir, 'main.log');
-
-// 重定向console输出到日志
-console.log = log.log;
-console.error = log.error;
-console.warn = log.warn;
-console.info = log.info;
-console.debug = log.debug;
+// 检查日志目录是否可写
+try {
+  const testLogPath = path.join(logDir, 'test_write.log');
+  fs.writeFileSync(testLogPath, 'test');
+  fs.unlinkSync(testLogPath);
+  log.info('日志目录可写');
+} catch (error) {
+  log.error('日志目录不可写:', error.message);
+  // 降级处理：使用系统临时目录
+  log.transports.file.file = path.join(os.tmpdir(), 'main.log');
+  log.warn('已降级到临时目录存储日志');
+}
 
 // 全局变量
 let ffmpegProcess = null;
@@ -29,13 +33,42 @@ let isRecording = false;
 let currentRecordingPath = null;
 
 // 注册自定义协议以安全加载本地资源
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // 注册自定义协议
-  protocol.registerFileProtocol('app', (request, callback) => {
-    const url = request.url.replace('app:///', '');
-    const filePath = path.join(__dirname, url);
-    callback({ path: filePath });
-  });
+  try {
+    protocol.registerFileProtocol('app', (request, callback) => {
+      const url = request.url.replace('app:///', '');
+      const filePath = path.join(__dirname, url);
+      callback({ path: filePath });
+    });
+    log.info('自定义协议注册成功');
+  } catch (error) {
+    log.error('自定义协议注册失败:', error);
+  }
+
+  // 设置IPC处理器
+  try {
+    setupIpcHandlers();
+  } catch (error) {
+    console.error('设置IPC处理器失败:', error);
+  }
+
+  // 检查并请求所有必要权限
+  try {
+    // 即使权限不足，也尝试创建窗口
+    createWindow();
+
+    // 在 macOS 上，当点击 dock 图标且没有其他窗口打开时，重新创建窗口
+    app.on('activate', function () {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow();
+      }
+    });
+  } catch (error) {
+    console.error('应用启动失败:', error);
+    dialog.showErrorBox('应用启动失败', `无法启动应用程序:\n${error.message}`);
+    app.quit();
+  }
 });
 
 // 创建预加载脚本
@@ -88,9 +121,15 @@ function createPreloadScript() {
 
   try {
     fs.writeFileSync(path.join(__dirname, 'preload.js'), preloadContent);
-    console.log('预加载脚本已创建');
+    log.info('预加载脚本已创建');
   } catch (error) {
-    console.error('创建预加载脚本失败:', error);
+    log.error('创建预加载脚本失败:', error);
+    // 如果创建预加载脚本失败，尝试使用已有的预加载脚本
+    if (!fs.existsSync(path.join(__dirname, 'preload.js'))) {
+      // 如果没有预加载脚本，使用空脚本
+      fs.writeFileSync(path.join(__dirname, 'preload.js'), '');
+      log.warn('已创建空预加载脚本');
+    }
   }
 }
 
@@ -130,10 +169,15 @@ function setupIpcHandlers() {
     createMainWindow();
   });
 
-  // 权限检查
+// 权限检查
   ipcMain.handle('check-screen-capture-permission', () => {
     if (process.platform !== 'darwin') return true;
-    return systemPreferences.getMediaAccessStatus('screen') === 'granted';
+    try {
+      return systemPreferences.getMediaAccessStatus('screen') === 'granted';
+    } catch (error) {
+      console.error('检查屏幕录制权限失败:', error);
+      return false;
+    }
   });
 
   ipcMain.handle('request-screen-capture-permission', async () => {
@@ -149,12 +193,22 @@ function setupIpcHandlers() {
 
   ipcMain.handle('check-accessibility-permission', () => {
     if (process.platform !== 'darwin') return true;
-    return systemPreferences.isTrustedAccessibilityClient(false);
+    try {
+      return systemPreferences.isTrustedAccessibilityClient(false);
+    } catch (error) {
+      console.error('检查辅助功能权限失败:', error);
+      return false;
+    }
   });
 
   ipcMain.handle('request-accessibility-permission', () => {
     if (process.platform !== 'darwin') return true;
-    return systemPreferences.isTrustedAccessibilityClient(true);
+    try {
+      return systemPreferences.isTrustedAccessibilityClient(true);
+    } catch (error) {
+      console.error('请求辅助功能权限失败:', error);
+      return false;
+    }
   });
 
   // 文件系统操作
@@ -179,7 +233,7 @@ function setupIpcHandlers() {
   });
 
   // 录制操作
-  ipcMain.handle('start-recording', (event, options) => {
+  ipcMain.handle('start-recording', async (event, options) => {
     console.log('开始录制:', options);
 
     // 检查是否已经在录制
@@ -198,6 +252,15 @@ function setupIpcHandlers() {
       };
     }
 
+    // 检查FFmpeg是否支持libx264
+    const hasLibx264 = await checkFfmpegLibx264Support();
+    if (!hasLibx264) {
+      return {
+        success: false,
+        error: 'FFmpeg 未编译libx264支持，请重新安装带有libx264的FFmpeg版本'
+      };
+    }
+
     // 检查屏幕录制权限（macOS）
     if (process.platform === 'darwin') {
       try {
@@ -206,6 +269,15 @@ function setupIpcHandlers() {
           return {
             success: false,
             error: '屏幕录制权限未授予，请在系统设置中启用'
+          };
+        }
+
+        // 检测AVFoundation设备
+        const devices = await detectAvfoundationDevices();
+        if (devices.length === 0) {
+          return {
+            success: false,
+            error: '未检测到AVFoundation设备，请检查系统设置'
           };
         }
       } catch (error) {
@@ -219,6 +291,17 @@ function setupIpcHandlers() {
       const recordAudio = options.recordAudio === true;
       const pushStream = options.pushStream === true;
       const streamUrl = options.streamUrl || '';
+
+      // 验证推流URL格式
+      if (pushStream && streamUrl) {
+        const urlPattern = /^(rtmp|rtsp|http|https):\/\/.+/;
+        if (!urlPattern.test(streamUrl)) {
+          return {
+            success: false,
+            error: '推流 URL 格式不正确'
+          };
+        }
+      }
 
       const ffmpegPath = getFfmpegPath();
       const outputPath = generateOutputPath();
@@ -244,28 +327,42 @@ function setupIpcHandlers() {
         }
       }
 
-
-      // 添加编码参数
-      args.push(
-          '-c:v', 'libx264',
-          '-preset', 'ultrafast',
-          '-crf', '23',
-          '-c:a', 'aac',
-          '-b:a', '128k',
-          '-y'
-      );
-
       // 添加输出路径
       if (options.pushStream && options.streamUrl) {
-        // 修复tee复用器参数格式，避免SIGABRT错误
-        // 使用更简单的格式，避免复杂的map参数导致FFmpeg内部错误
+        // 推流时需要指定编码参数 - 最终优化版本
         args.push(
-            '-f', 'tee',
-            `[onfail=ignore]${options.streamUrl}|[onfail=ignore]${outputPath}`
+            '-vf', 'scale=1920:1080,format=yuv420p',
+            '-c:v', 'libx264',
+            '-preset', 'veryfast',
+            '-tune', 'zerolatency',
+            '-crf', '23',
+            '-c:a', 'aac',
+            '-b:a', '128k',
+            '-y',
+            '-f', 'tee'
         );
+
+        // 根据URL协议选择输出格式
+        if (streamUrl.startsWith('rtmp://') || streamUrl.startsWith('rtmps://')) {
+          args.push('-f', 'flv');
+        } else if (streamUrl.startsWith('http://') || streamUrl.startsWith('https://')) {
+          args.push('-f', 'mpegts');
+        }
+
+        args.push(`[onfail=ignore]${options.streamUrl}|[onfail=ignore]${outputPath}`);
       } else {
-        // 只输出到文件
-        args.push(outputPath);
+        // 普通录制时不添加编码参数，使用FFmpeg默认设置
+        args.push(
+            '-vf', 'scale=1920:1080,format=yuv420p',
+            '-c:v', 'libx264',
+            '-preset', 'veryfast',
+            '-tune', 'zerolatency',
+            '-crf', '23',
+            '-c:a', 'aac',
+            '-b:a', '128k',
+            '-y',
+            outputPath
+        );
       }
 
 
@@ -276,6 +373,8 @@ function setupIpcHandlers() {
       log.info('当前工作目录:', process.cwd());
       log.info('当前用户:', process.env.USER);
       log.info('当前UID/GID:', process.getuid(), '/', process.getgid());
+      log.info('是否打包:', app.isPackaged);
+      log.info('资源路径:', process.resourcesPath);
 
       try {
         if (fs.existsSync(ffmpegPath)) {
@@ -294,16 +393,28 @@ function setupIpcHandlers() {
       // 添加更多调试参数
       const debugArgs = [
         '-loglevel', 'verbose',  // 更详细的日志
-        '-report'  // 生成详细报告文件
+        '-max_delay', '1000000'  // 增加最大延迟
       ];
 
       const fullArgs = [...debugArgs, ...args];
 
       log.debug('完整FFmpeg参数:', fullArgs);
 
+      // 确保FFmpeg工作目录正确
+      const ffmpegWorkingDir = path.dirname(ffmpegPath);
+      log.info('FFmpeg工作目录:', ffmpegWorkingDir);
+
+      // 复制命令行环境变量
+      const env = { ...process.env };
+      // 添加FFmpeg所在目录到PATH
+      env.PATH = `${ffmpegWorkingDir}:${env.PATH}`;
+      // 确保可以访问系统库
+      env.DYLD_LIBRARY_PATH = `${ffmpegWorkingDir}/lib:${env.DYLD_LIBRARY_PATH || ''}`;
+
       ffmpegProcess = spawn(ffmpegPath, fullArgs, {
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: { ...process.env, PATH: process.env.PATH + ':' + path.dirname(ffmpegPath) },
+        cwd: ffmpegWorkingDir,  // 设置正确的工作目录
+        env: env,  // 使用命令行环境变量
         detached: false
       });
       isRecording = true;
@@ -323,9 +434,14 @@ function setupIpcHandlers() {
         const output = data.toString().trim();
         if (output) {
           stderrBuffer += output + '\n';
-          // 只显示关键错误信息，避免日志过多
+          // 只显示严重错误信息，忽略格式降级警告
           if (output.includes('error') || output.includes('Error') || output.includes('failed')) {
-            log.error('FFmpeg error:', output);
+            // 忽略格式降级警告和不兼容像素格式警告
+            if (!output.includes('Selected pixel format') &&
+                !output.includes('Overriding selected pixel format') &&
+                !output.includes('Incompatible pixel format')) {
+              log.error('FFmpeg error:', output);
+            }
           } else if (output.includes('warning') || output.includes('Warning')) {
             log.warn('FFmpeg warning:', output);
           } else {
@@ -465,43 +581,60 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle('stop-recording', () => {
-    console.log('停止录制');
+    return new Promise((resolve) => {
+      console.log('停止录制');
 
-    if (!isRecording || !ffmpegProcess) {
-      return {
-        success: false,
-        error: '没有正在进行的录制'
-      };
-    }
+      if (!isRecording || !ffmpegProcess) {
+        resolve({
+          success: false,
+          error: '没有正在进行的录制'
+        });
+        return;
+      }
 
-    try {
-      // 向FFmpeg进程发送q命令优雅停止
-      ffmpegProcess.stdin.write('q\n');
+      try {
+        // 向FFmpeg进程发送q命令优雅停止
+        ffmpegProcess.stdin.write('q\n');
 
-      // 设置超时强制终止
-      setTimeout(() => {
-        if (ffmpegProcess && !ffmpegProcess.killed) {
-          console.warn('FFmpeg 未响应，强制终止');
-          ffmpegProcess.kill('SIGKILL');
-        }
-      }, 5000);
+        // 等待进程结束
+        ffmpegProcess.on('close', () => {
+          const outputPath = currentRecordingPath;
+          currentRecordingPath = null;
+          isRecording = false;
+          ffmpegProcess = null;
 
-      const outputPath = currentRecordingPath;
-      currentRecordingPath = null;
+          resolve({
+            success: true,
+            status: 'stopped',
+            outputPath: outputPath
+          });
+        });
 
-      return {
-        success: true,
-        status: 'stopped',
-        outputPath: outputPath
-      };
+        // 设置超时强制终止
+        setTimeout(() => {
+          if (ffmpegProcess && !ffmpegProcess.killed) {
+            console.warn('FFmpeg 未响应，强制终止');
+            ffmpegProcess.kill('SIGKILL');
+            const outputPath = currentRecordingPath;
+            currentRecordingPath = null;
+            isRecording = false;
+            ffmpegProcess = null;
+            resolve({
+              success: true,
+              status: 'stopped',
+              outputPath: outputPath
+            });
+          }
+        }, 5000);
 
-    } catch (error) {
-      console.error('停止录制失败:', error);
-      return {
-        success: false,
-        error: error.message
-      };
-    }
+      } catch (error) {
+        console.error('停止录制失败:', error);
+        resolve({
+          success: false,
+          error: error.message
+        });
+      }
+    });
   });
 
   ipcMain.handle('pause-recording', () => {
@@ -803,6 +936,26 @@ async function checkAndRequestAllPermissions() {
       }
     }
 
+    // 检查麦克风权限
+    const microphoneStatus = systemPreferences.getMediaAccessStatus('microphone');
+    if (microphoneStatus !== 'granted') {
+      try {
+        const granted = await systemPreferences.askForMediaAccess('microphone');
+        if (!granted) {
+          dialog.showMessageBoxSync({
+            type: 'warning',
+            title: '麦克风权限',
+            message: '需要麦克风权限才能录制音频',
+            detail: '请在系统设置中手动授予权限:\n1. 打开系统设置 > 隐私与安全性\n2. 选择麦克风\n3. 勾选您的应用程序'
+          });
+          hasAllPermissions = false;
+        }
+      } catch (error) {
+        console.error('请求麦克风权限失败:', error);
+        hasAllPermissions = false;
+      }
+    }
+
     // 检查辅助功能权限
     const isTrusted = systemPreferences.isTrustedAccessibilityClient(false);
     if (!isTrusted) {
@@ -821,44 +974,59 @@ async function checkAndRequestAllPermissions() {
 
 function createWindow() {
   // 创建预加载脚本
-  createPreloadScript();
-
-  const mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    webPreferences: {
-      contextIsolation: true,
-      enableRemoteModule: false,
-      nodeIntegration: false,
-      sandbox: false,
-      preload: path.join(__dirname, 'preload.js'),
-      webSecurity: true
+  try {
+    createPreloadScript();
+  } catch (error) {
+    console.error('创建预加载脚本失败:', error);
+    // 如果创建预加载脚本失败，使用空脚本
+    const preloadPath = path.join(__dirname, 'preload.js');
+    if (!fs.existsSync(preloadPath)) {
+      fs.writeFileSync(preloadPath, '');
     }
-  });
+  }
 
-  // 加载登录页面
-  mainWindow.loadFile('login.html').catch(err => {
-    console.error('加载登录页面失败:', err);
-    // 尝试加载主页面
-    mainWindow.loadFile('main.html').catch(err2 => {
-      console.error('加载主页面也失败:', err2);
-      // 显示错误页面
-      mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
-        <html>
-        <head><title>加载失败</title></head>
-        <body>
-          <h1>无法加载应用</h1>
-          <p>错误: ${err.message}</p>
-          <p>请检查HTML文件是否存在</p>
-        </body>
-        </html>
-      `)}`);
+  try {
+    const mainWindow = new BrowserWindow({
+      width: 1200,
+      height: 800,
+      webPreferences: {
+        contextIsolation: true,
+        enableRemoteModule: false,
+        nodeIntegration: false,
+        sandbox: false,
+        preload: path.join(__dirname, 'preload.js'),
+        webSecurity: true
+      }
     });
-  });
 
-  // 打开开发者工具（开发环境）
-  if (process.env.NODE_ENV === 'development') {
-    mainWindow.webContents.openDevTools();
+    // 加载登录页面
+    mainWindow.loadFile('login.html').catch(err => {
+      console.error('加载登录页面失败:', err);
+      // 尝试加载主页面
+      mainWindow.loadFile('main.html').catch(err2 => {
+        console.error('加载主页面也失败:', err2);
+        // 显示错误页面
+        mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
+          <html>
+          <head><title>加载失败</title></head>
+          <body>
+            <h1>无法加载应用</h1>
+            <p>错误: ${err.message}</p>
+            <p>请检查HTML文件是否存在</p>
+          </body>
+          </html>
+        `)}`);
+      });
+    });
+
+    // 打开开发者工具（开发环境）
+    if (process.env.NODE_ENV === 'development') {
+      mainWindow.webContents.openDevTools();
+    }
+  } catch (error) {
+    console.error('创建窗口失败:', error);
+    dialog.showErrorBox('创建窗口失败', `无法创建应用窗口:\n${error.message}`);
+    app.quit();
   }
 }
 
@@ -901,28 +1069,6 @@ function createMainWindow() {
   }
 }
 
-app.whenReady().then(async () => {
-  // 设置IPC处理器
-  setupIpcHandlers();
-
-  // 检查权限
-  const hasAllPermissions = await checkAndRequestAllPermissions();
-
-  if (hasAllPermissions) {
-    console.log('所有权限已授予，创建主窗口');
-    createWindow();
-  } else {
-    console.log('部分权限未授予，仍创建窗口供用户设置');
-    createWindow();
-  }
-
-  app.on('activate', function () {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
-  });
-});
-
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit();
 });
@@ -947,7 +1093,26 @@ function getFfmpegPath() {
       if (isDev) {
         ffmpegPath = path.join(__dirname, 'ffmpeg', 'ffmpeg');
       } else {
-        ffmpegPath = path.join(process.resourcesPath, 'ffmpeg', 'ffmpeg');
+        // 尝试多种可能的路径
+        const possiblePaths = [
+          path.join(process.resourcesPath, 'ffmpeg', 'ffmpeg'),
+          path.join(process.resourcesPath, 'app', 'ffmpeg', 'ffmpeg'),
+          path.join(process.execPath, '..', '..', 'Resources', 'ffmpeg'),
+          path.join(process.execPath, '..', 'Resources', 'ffmpeg')
+        ];
+
+        // 找到第一个存在的路径
+        for (const path of possiblePaths) {
+          if (fs.existsSync(path)) {
+            ffmpegPath = path;
+            break;
+          }
+        }
+
+        // 如果都找不到，回退到默认路径
+        if (!ffmpegPath) {
+          ffmpegPath = path.join(process.resourcesPath, 'ffmpeg', 'ffmpeg');
+        }
       }
       break;
     default:
@@ -1045,6 +1210,37 @@ function checkFfmpegExists() {
   }
 }
 
+function checkFfmpegLibx264Support() {
+  return new Promise((resolve) => {
+    const ffmpegPath = getFfmpegPath();
+    const args = ['-codecs'];
+
+    const process = spawn(ffmpegPath, args);
+    let output = '';
+
+    process.stderr.on('data', (data) => {
+      output += data.toString();
+    });
+
+    process.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+
+    process.on('close', (code) => {
+      if (code === 0 && output.includes('libx264')) {
+        resolve(true);
+      } else {
+        resolve(false);
+      }
+    });
+
+    process.on('error', (error) => {
+      console.error('检查FFmpeg libx264支持失败:', error.message);
+      resolve(false);
+    });
+  });
+}
+
 function getScreenCaptureArgs(displayIndex = 0) {
   const args = [];
 
@@ -1054,14 +1250,16 @@ function getScreenCaptureArgs(displayIndex = 0) {
       args.push('-f', 'gdigrab', '-framerate', '30', '-i', 'desktop');
       break;
     case 'darwin':
-      // macOS 屏幕捕获
-      // AVFoundation 在 macOS 上使用 "screen_capture_device:audio_device" 格式
-      // 屏幕设备通常从 1 开始编号，例如 "1:none" 表示第一个屏幕，无音频
-      args.push('-f', 'avfoundation', '-framerate', '30', '-pixel_format', 'uyvy422');
-
-      // 在 macOS 上，屏幕设备编号与显示器索引的关系
-      // 根据用户测试，设备编号2是正确的屏幕录制设备
-      args.push('-i', `2:none`);
+      // macOS 屏幕捕获 - 使用屏幕设备
+      args.push(
+          '-f', 'avfoundation',
+          '-v', 'info',
+          '-pixel_format', 'uyvy422',
+          '-r', '25',
+          '-analyzeduration', '0',
+          '-probesize', '50M',
+          '-i', `2`
+      );
       break;
     case 'linux':
       // Linux 屏幕捕获
@@ -1216,7 +1414,8 @@ function generateOutputPath() {
   const date = new Date();
   const timestamp = `${date.getFullYear()}${(date.getMonth()+1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}_${date.getHours().toString().padStart(2, '0')}${date.getMinutes().toString().padStart(2, '0')}${date.getSeconds().toString().padStart(2, '0')}`;
 
-  const outputDir = path.join(__dirname, 'recordings');
+  // 将录制文件存储到用户数据目录，而不是应用目录
+  const outputDir = path.join(app.getPath('userData'), 'recordings');
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
   }
